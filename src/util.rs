@@ -11,8 +11,6 @@ pub fn copy_memory(src: &[u8], dst: &mut [u8]) {
     // `dst` is unaliasable, so we know statically it doesn't overlap
     // with `src`.
     unsafe {
-        ::std::ptr::copy_nonoverlapping(src.as_ptr(),
-                                      dst.as_mut_ptr(),
-                                      len_src);
+        ::std::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr(), len_src);
     }
 }

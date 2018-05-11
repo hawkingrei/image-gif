@@ -1,8 +1,8 @@
 //! Common common used both by decoder and encoder
 extern crate color_quant;
 
-use std::mem;
 use std::borrow::Cow;
+use std::mem;
 
 /// Disposal method
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -38,21 +38,18 @@ pub enum Block {
     /// Extension block.
     Extension = 0x21,
     /// Image trailer.
-    Trailer = 0x3B
+    Trailer = 0x3B,
 }
 
 impl Block {
     /// Converts `u8` to `Option<Self>`
     pub fn from_u8(n: u8) -> Option<Block> {
         match n {
-            0x2C | 0x21 | 0x3B => {
-                Some(unsafe { mem::transmute(n) })
-            }
-            _ => None
+            0x2C | 0x21 | 0x3B => Some(unsafe { mem::transmute(n) }),
+            _ => None,
         }
     }
 }
-
 
 /// Known GIF extensions
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -65,17 +62,15 @@ pub enum Extension {
     /// Comment extension.
     Comment = 0xFE,
     /// Application extension.
-    Application = 0xFF
+    Application = 0xFF,
 }
 
 impl Extension {
     /// Converts `u8` to `Option<Self>`
     pub fn from_u8(n: u8) -> Option<Extension> {
         match n {
-            0x01 | 0xF9 | 0xFE | 0xFF => {
-                Some(unsafe { mem::transmute(n) })
-            }
-            _ => None
+            0x01 | 0xF9 | 0xFE | 0xFF => Some(unsafe { mem::transmute(n) }),
+            _ => None,
         }
     }
 }
@@ -105,7 +100,7 @@ pub struct Frame<'a> {
     pub palette: Option<Vec<u8>>,
     /// Buffer containing the image data.
     /// Only indices unless configured differently.
-    pub buffer: Cow<'a, [u8]>
+    pub buffer: Cow<'a, [u8]>,
 }
 
 impl<'a> Default for Frame<'a> {
@@ -121,13 +116,12 @@ impl<'a> Default for Frame<'a> {
             height: 0,
             interlaced: false,
             palette: None,
-            buffer: Cow::Borrowed(&[])
+            buffer: Cow::Borrowed(&[]),
         }
     }
 }
 
 impl Frame<'static> {
-    
     /// Creates a frame from pixels in RGBA format.
     ///
     /// *Note: This method is not optimized for speed.*
@@ -153,14 +147,18 @@ impl Frame<'static> {
             None
         };
         frame
-        
-        
     }
 
     /// Creates a frame from a palette and indexed pixels
-    pub fn from_palette_pixels(width: u16, height: u16, pixels: &[u8], palette: &[u8], transparent: Option<u8>) -> Frame<'static> {
+    pub fn from_palette_pixels(
+        width: u16,
+        height: u16,
+        pixels: &[u8],
+        palette: &[u8],
+        transparent: Option<u8>,
+    ) -> Frame<'static> {
         assert_eq!(width as usize * height as usize, pixels.len());
-        assert!(palette.len() <= 256*3);
+        assert!(palette.len() <= 256 * 3);
         let mut frame = Frame::default();
 
         frame.width = width;
@@ -175,7 +173,12 @@ impl Frame<'static> {
     }
 
     /// Creates a frame from indexed pixels in the global palette
-    pub fn from_indexed_pixels(width: u16, height: u16, pixels: &[u8], transparent: Option<u8>) -> Frame<'static> {
+    pub fn from_indexed_pixels(
+        width: u16,
+        height: u16,
+        pixels: &[u8],
+        transparent: Option<u8>,
+    ) -> Frame<'static> {
         assert_eq!(width as usize * height as usize, pixels.len());
         let mut frame = Frame::default();
 
