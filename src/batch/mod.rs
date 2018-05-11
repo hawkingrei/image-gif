@@ -1,4 +1,5 @@
 use common::Frame;
+use encoder::Encoder;
 use reader::ColorOutput;
 use reader::Decoder;
 use reader::StreamingDecoder;
@@ -39,5 +40,28 @@ impl<R: Read + Copy> BatchGif<R> {
             }
             Err(_) => return Err(()),
         }
+    }
+
+    pub fn get_gif_by_index(&self, index: usize) -> Vec<u8> {
+        assert!(index <= self.Frames.len() - 1);
+
+        let mut encode;
+        let frame = &self.Frames[index];
+        let mut image = Vec::new();
+        {
+            let mut img = image.clone();
+            match frame.palette {
+                Some(_) => {
+                    encode = Encoder::new(img, self.width, self.height, &[]).unwrap();
+                }
+                None => {
+                    encode =
+                        Encoder::new(img, self.width, self.height, self.global_palette.as_slice())
+                            .unwrap();
+                }
+            }
+            encode.write_frame(frame).unwrap();
+        }
+        return image;
     }
 }
