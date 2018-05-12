@@ -5,6 +5,7 @@ use reader::Decoder;
 use reader::StreamingDecoder;
 use std::io;
 use std::io::prelude::*;
+use std::sync::Arc;
 
 ///  new gif process
 pub struct BatchGif<R: Read + Copy> {
@@ -18,7 +19,7 @@ pub struct BatchGif<R: Read + Copy> {
     global_palette: Vec<u8>,
     // ext buffer
     // ext: (u8, Vec<u8>, bool),
-    Frames: Vec<Frame<'static>>,
+    Frames: Vec<Arc<Frame<'static>>>,
 }
 
 impl<R: Read + Copy> BatchGif<R> {
@@ -35,7 +36,7 @@ impl<R: Read + Copy> BatchGif<R> {
                     Frames: Vec::new(),
                 };
                 while let Some(frame) = decode.read_next_frame().unwrap() {
-                    bgif.Frames.push(frame.clone());
+                    bgif.Frames.push(Arc::new(frame.clone()));
                     // Process every frame
                 }
                 Ok(bgif)
@@ -47,12 +48,11 @@ impl<R: Read + Copy> BatchGif<R> {
     /// get_gif_by_index get the gif of the frame by index
     pub fn get_gif_by_index(&self, index: usize) -> Vec<u8> {
         assert!(index <= self.Frames.len() - 1);
-
-        let mut encode;
-        let frame = &self.Frames[index];
         let mut image = Vec::new();
+        let frame = &self.Frames[index];
         {
-            let mut img = image.clone();
+            let mut encode;
+            let img = &mut image;
             match frame.palette {
                 Some(_) => {
                     encode = Encoder::new(img, self.width, self.height, &[]).unwrap();
@@ -65,6 +65,6 @@ impl<R: Read + Copy> BatchGif<R> {
             }
             encode.write_frame(frame).unwrap();
         }
-        return image;
+        image
     }
 }
