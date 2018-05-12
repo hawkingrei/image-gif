@@ -143,6 +143,7 @@ pub use reader::{ColorOutput, Extensions, MemoryLimit};
 pub use reader::{Decoded, DecodingError, StreamingDecoder};
 pub use reader::{Decoder, Reader};
 
+pub use batch::BatchGif;
 pub use encoder::{Encoder, ExtensionData, Repeat};
 
 #[cfg(test)]
@@ -164,4 +165,22 @@ fn round_trip() {
         encoder.write_frame(frame).unwrap();
     }
     assert_eq!(&data[..], &data2[..])
+}
+
+#[cfg(test)]
+#[test]
+fn test_batch() {
+    use std::fs::File;
+    use std::io::prelude::*;
+    let mut data = vec![];
+    File::open("tests/samples/sample_1.gif")
+        .unwrap()
+        .read_to_end(&mut data)
+        .unwrap();
+    let mut decoder = BatchGif::new(&*data).unwrap();
+    let mut data2 = decoder.get_gif_by_index(0);
+    let mut f = File::create("test1.gif").expect("Unable to create file");
+    for i in data2 {
+        f.write_all((&[i])).expect("Unable to write data");
+    }
 }
