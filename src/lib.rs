@@ -122,7 +122,8 @@
 extern crate libc;
 extern crate lzw;
 
-mod batch;
+/// new gif process
+pub mod batch;
 mod common;
 mod encoder;
 mod reader;

@@ -6,6 +6,7 @@ use reader::StreamingDecoder;
 use std::io;
 use std::io::prelude::*;
 
+///  new gif process
 pub struct BatchGif<R: Read + Copy> {
     r: R,
     //decoder: Decoder<R>,
@@ -21,6 +22,7 @@ pub struct BatchGif<R: Read + Copy> {
 }
 
 impl<R: Read + Copy> BatchGif<R> {
+    /// new create BatchGif
     pub fn new(r: R) -> Result<BatchGif<R>, ()> {
         match Decoder::new(r).read_info() {
             Ok(mut decode) => {
@@ -42,6 +44,7 @@ impl<R: Read + Copy> BatchGif<R> {
         }
     }
 
+    /// get_gif_by_index get the gif of the frame by index
     pub fn get_gif_by_index(&self, index: usize) -> Vec<u8> {
         assert!(index <= self.Frames.len() - 1);
 
