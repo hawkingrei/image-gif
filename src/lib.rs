@@ -184,3 +184,21 @@ fn test_batch() {
         f.write_all((&[i])).expect("Unable to write data");
     }
 }
+
+#[cfg(test)]
+#[test]
+fn test_optimize() {
+    use std::fs::File;
+    use std::io::prelude::*;
+    let mut data = vec![];
+    File::open("giphy.gif")
+        .unwrap()
+        .read_to_end(&mut data)
+        .unwrap();
+    let mut decoder = BatchGif::new(&*data).unwrap();
+    let mut data2 = decoder.optimize_gif();
+    let mut f = File::create("test2.gif").expect("Unable to create file");
+    for i in data2 {
+        f.write_all((&[i])).expect("Unable to write data");
+    }
+}
