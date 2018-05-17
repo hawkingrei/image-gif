@@ -85,6 +85,8 @@ impl Parameter<StreamingDecoder> for Extensions {
 pub enum Decoded<'a> {
     /// Decoded nothing.
     Nothing,
+    /// Loop
+    LoopExtension(Vec<u8>),
     /// Global palette.
     GlobalPalette(Vec<u8>),
     /// Index of the background color in the global palette.
@@ -110,6 +112,7 @@ pub enum Decoded<'a> {
 #[derive(Debug)]
 enum State {
     Magic(usize, [u8; 6]),
+    LoopExtension(usize, [u8; 17]),
     U16Byte1(U16Value, u8),
     U16(U16Value),
     Byte(ByteValue),
@@ -163,6 +166,7 @@ pub struct StreamingDecoder {
     state: Option<State>,
     lzw_reader: Option<lzw::Decoder<lzw::LsbReader>>,
     skip_extensions: bool,
+    loop_extension: bool,
     version: &'static str,
     width: u16,
     height: u16,
@@ -181,6 +185,7 @@ impl StreamingDecoder {
             state: Some(Magic(0, [0; 6])),
             lzw_reader: None,
             skip_extensions: true,
+            loop_extension: false,
             version: "",
             width: 0,
             height: 0,
@@ -199,6 +204,7 @@ impl StreamingDecoder {
         // NOTE: Do not change the function signature without double-checking the
         //       unsafe block!
         let len = buf.len();
+
         while buf.len() > 0 && self.state.is_some() {
             match self.next_state(buf) {
                 Ok((bytes, Decoded::Nothing)) => buf = &buf[bytes..],
@@ -222,7 +228,9 @@ impl StreamingDecoder {
                         unsafe { mem::transmute::<Decoded, Decoded>(result) },
                     ));
                 }
-                Err(err) => return Err(err),
+                Err(err) => {
+                    return Err(err);
+                }
             }
         }
         Ok((len - buf.len(), Decoded::Nothing))
@@ -253,6 +261,11 @@ impl StreamingDecoder {
     /// Height of the image
     pub fn height(&self) -> u16 {
         self.height
+    }
+
+    /// is_loop of the image
+    pub fn is_loop(&self) -> bool {
+        self.loop_extension
     }
 
     fn next_state<'a>(&'a mut self, buf: &[u8]) -> Result<(usize, Decoded<'a>), DecodingError> {
@@ -295,6 +308,19 @@ impl StreamingDecoder {
             } else {
                 Err(DecodingError::Format("malformed GIF header"))
             },
+            LoopExtension(i, mut buf) => {
+                println!("enter loopExtension");
+                if i < 11 {
+                    buf[i] = b;
+                    goto!(LoopExtension(i + 1, buf))
+                } else if &buf[..11] == b"NETSCAPE2.0" {
+                    println!("is_loop");
+                    self.loop_extension = true;
+                    goto!(11, SkipBlock(0))
+                } else {
+                    Err(DecodingError::Format("malformed GIF header"))
+                }
+            }
             U16(next) => goto!(U16Byte1(next, b)),
             U16Byte1(next, value) => {
                 use self::U16Value::*;
@@ -401,7 +427,8 @@ impl StreamingDecoder {
                     goto!(n, GlobalPalette(left - n))
                 } else {
                     let idx = self.background_color[0];
-                    match self.global_color_table
+                    match self
+                        .global_color_table
                         .chunks(PLTE_CHANNELS)
                         .nth(idx as usize)
                     {
@@ -448,7 +475,16 @@ impl StreamingDecoder {
                 if let Some(ext) = Extension::from_u8(type_) {
                     match ext {
                         Control => goto!(try!(self.read_control_extension(b))),
-                        Text | Comment | Application => goto!(SkipBlock(b as usize)),
+                        Application => if b == 11 {
+                            println!("extensinblock appliction loop");
+                            self.loop_extension = true;
+                            goto!(SkipBlock(b as usize))
+                        //goto!(try!(self.read_loop_extension(b)))
+                        } else {
+                            println!("extensinblock appliction loop slip {}", b);
+                            goto!(SkipBlock(b as usize))
+                        },
+                        Text | Comment => goto!(SkipBlock(b as usize)),
                     }
                 } else {
                     return Err(DecodingError::Format("unknown extention block encountered"));
@@ -529,6 +565,12 @@ impl StreamingDecoder {
             return Err(DecodingError::Format("control extension has wrong length"));
         }
         Ok(Byte(ByteValue::ControlFlags))
+    }
+
+    fn read_loop_extension(&mut self, b: u8) -> Result<State, DecodingError> {
+        self.ext.1.push(b);
+        println!("is loop");
+        Ok(LoopExtension(0, [0; 17]))
     }
 
     fn add_frame(&mut self) {

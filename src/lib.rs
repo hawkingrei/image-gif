@@ -196,6 +196,7 @@ fn test_optimize() {
         .read_to_end(&mut data)
         .unwrap();
     let mut decoder = BatchGif::new(&*data).unwrap();
+    assert_eq!(decoder.is_loop(), true);
     let mut data2 = decoder.optimize_gif();
     let mut f = File::create("test2.gif").expect("Unable to create file");
     for i in data2 {

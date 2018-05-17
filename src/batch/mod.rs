@@ -20,6 +20,7 @@ pub struct BatchGif<R: Read + Copy> {
     global_palette: Vec<u8>,
     count: u16,
     duration: u16,
+    is_loop: bool,
     // ext buffer
     // ext: (u8, Vec<u8>, bool),
     Frames: Vec<Arc<Frame<'static>>>,
@@ -30,10 +31,12 @@ impl<R: Read + Copy> BatchGif<R> {
     pub fn new(r: R) -> Result<BatchGif<R>, ()> {
         match Decoder::new(r).read_info() {
             Ok(mut decode) => {
+                //println!("decode.is_loop() {}", decode.is_loop());
                 let mut bgif = BatchGif {
                     r: r,
                     width: decode.width(),
                     height: decode.height(),
+                    is_loop: false,
                     background_color_index: decode.bg_color(),
                     global_palette: decode.global_palette().unwrap().to_vec(),
                     Frames: Vec::new(),
@@ -46,6 +49,7 @@ impl<R: Read + Copy> BatchGif<R> {
                     bgif.Frames.push(Arc::new(frame.clone()));
                     // Process every frame
                 }
+                bgif.is_loop = decode.is_loop();
                 Ok(bgif)
             }
             Err(_) => return Err(()),
@@ -98,7 +102,7 @@ impl<R: Read + Copy> BatchGif<R> {
                 if is_optimize {
                     tmp_duration += frame.delay;
                     tmp_count += 1;
-                    if tmp_duration > 20 && tmp_count > 5 && !(total_count > self.count - 2) {
+                    if tmp_duration > 20 && tmp_count > 5 {
                         println!("remove frame count: {}", total_count);
                         tmp_duration = 0;
                         tmp_count = 0;
@@ -127,5 +131,10 @@ impl<R: Read + Copy> BatchGif<R> {
             }
         }
         image
+    }
+
+    /// is_loop of the image
+    pub fn is_loop(&self) -> bool {
+        self.is_loop
     }
 }

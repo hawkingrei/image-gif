@@ -365,6 +365,11 @@ where
         self.decoder.decoder.height()
     }
 
+    /// Whether is loop
+    pub fn is_loop(&self) -> bool {
+        self.decoder.decoder.is_loop()
+    }
+
     /// Index of the background color in the global palette
     pub fn bg_color(&self) -> Option<usize> {
         self.bg_color.map(|v| v as usize)
