@@ -8,6 +8,46 @@ use std::io;
 use std::io::prelude::*;
 use std::sync::Arc;
 
+struct BatchFrame {
+    Frame: Frame<'static>,
+    transparent_color: Option<[u8; 3]>,
+    color_table: Vec<u8>,
+}
+
+impl BatchFrame {
+    pub fn new(frame: Frame<'static>, global_palette: Option<&[u8]>) -> BatchFrame {
+        let mut fframe = frame.clone();
+        let mut color_table;
+        let tcolor;
+        {
+            color_table = match fframe.palette {
+                Some(p) => p,
+                None => global_palette.unwrap().to_vec(),
+            };
+            tcolor = match fframe.transparent {
+                Some(p) => {
+                    let mut count = 0;
+                    let mut result = Some([0; 3]);
+                    for color in color_table.chunks_mut(3) {
+                        if count + 1 == p {
+                            result = Some([color[0], color[1], color[2]]);
+                        }
+                        count = count + 1;
+                    }
+                    result
+                }
+                None => None,
+            };
+        }
+
+        BatchFrame {
+            Frame: frame,
+            color_table: color_table,
+            transparent_color: tcolor,
+        }
+    }
+}
+
 ///  new gif process
 pub struct BatchGif<R: Read + Copy> {
     r: R,
@@ -23,7 +63,9 @@ pub struct BatchGif<R: Read + Copy> {
     is_loop: bool,
     // ext buffer
     // ext: (u8, Vec<u8>, bool),
-    Frames: Vec<Arc<Frame<'static>>>,
+    only_global_color: bool,
+
+    Frames: Vec<Arc<BatchFrame>>,
 }
 
 impl<R: Read + Copy> BatchGif<R> {
@@ -34,7 +76,7 @@ impl<R: Read + Copy> BatchGif<R> {
                 //println!("decode.is_loop() {}", decode.is_loop());
                 let mut bgif = BatchGif {
                     r: r,
-                    width: decode.width(),
+                    width: decode.width().clone(),
                     height: decode.height(),
                     is_loop: false,
                     background_color_index: decode.bg_color(),
@@ -42,12 +84,24 @@ impl<R: Read + Copy> BatchGif<R> {
                     Frames: Vec::new(),
                     count: 0,
                     duration: 0,
+                    only_global_color: true,
                 };
-                while let Some(frame) = decode.read_next_frame().unwrap() {
-                    bgif.count += 1;
-                    bgif.duration += frame.delay;
-                    bgif.Frames.push(Arc::new(frame.clone()));
-                    // Process every frame
+
+                println!("{:?}", bgif.global_palette);
+                {
+                    while let Some(frame) = decode.read_next_frame().unwrap() {
+                        bgif.count += 1;
+                        bgif.duration += frame.delay;
+                        bgif.Frames.push(Arc::new(BatchFrame::new(
+                            frame.clone(),
+                            Some(&bgif.global_palette),
+                        )));
+                        match frame.palette {
+                            Some(_) => bgif.only_global_color = false,
+                            None => {}
+                        }
+                        // Process every frame
+                    }
                 }
                 bgif.is_loop = decode.is_loop();
                 Ok(bgif)
@@ -64,7 +118,7 @@ impl<R: Read + Copy> BatchGif<R> {
         {
             let mut encode;
             let img = &mut image;
-            match frame.palette {
+            match frame.Frame.palette {
                 Some(_) => {
                     encode = Encoder::new(img, self.width, self.height, &[], false).unwrap();
                 }
@@ -78,7 +132,7 @@ impl<R: Read + Copy> BatchGif<R> {
                     ).unwrap();
                 }
             }
-            encode.write_frame(frame).unwrap();
+            encode.write_frame(&frame.Frame).unwrap();
         }
         image
     }
@@ -109,34 +163,37 @@ impl<R: Read + Copy> BatchGif<R> {
             for mut frame in self.Frames.clone() {
                 total_count += 1;
                 if is_optimize {
-                    tmp_duration += frame.delay;
+                    tmp_duration += frame.Frame.delay;
                     tmp_count += 1;
                     if tmp_duration > 20 && tmp_count > 5 {
                         println!("remove frame count: {}", total_count);
                         tmp_duration = 0;
                         tmp_count = 0;
-                        tmp_delay = frame.delay;
+                        tmp_delay = frame.Frame.delay;
                         continue;
                     }
                 }
                 if tmp_delay != 0 {
-                    frame = Arc::new(Frame {
-                        delay: (frame.delay + tmp_delay) / 2,
-                        dispose: DisposalMethod::Previous,
-                        transparent: frame.transparent,
-                        needs_user_input: frame.needs_user_input,
-                        top: frame.top,
-                        left: frame.left,
-                        width: frame.width,
-                        height: frame.height,
-                        interlaced: frame.interlaced,
-                        palette: frame.palette.clone(),
-                        buffer: frame.buffer.clone(),
-                    });
+                    frame = Arc::new(BatchFrame::new(
+                        Frame {
+                            delay: (frame.Frame.delay + tmp_delay) / 2,
+                            dispose: DisposalMethod::Previous,
+                            transparent: frame.Frame.transparent,
+                            needs_user_input: frame.Frame.needs_user_input,
+                            top: frame.Frame.top,
+                            left: frame.Frame.left,
+                            width: frame.Frame.width,
+                            height: frame.Frame.height,
+                            interlaced: frame.Frame.interlaced,
+                            palette: frame.Frame.palette.clone(),
+                            buffer: frame.Frame.buffer.clone(),
+                        },
+                        Some(&self.global_palette),
+                    ));
                     tmp_delay = 0;
                 }
-                println!("delaym {:?}", frame.dispose);
-                encode.write_frame(Arc::make_mut(&mut frame)).unwrap();
+                println!("delaym {:?}", frame.Frame.dispose);
+                encode.write_frame(&frame.Frame).unwrap();
             }
         }
         image
