@@ -135,17 +135,23 @@ impl<W: Write> Encoder<W> {
     ///
     /// `global_palette` gives the global color palette in the format `[r, g, b, ...]`,
     /// if no global palette shall be used an empty slice may be supplied.
-    pub fn new(w: W, width: u16, height: u16, global_palette: &[u8]) -> io::Result<Self> {
+    pub fn new(
+        w: W,
+        width: u16,
+        height: u16,
+        global_palette: &[u8],
+        isloop: bool,
+    ) -> io::Result<Self> {
         Encoder {
             w: w,
             global_palette: false,
             width: width,
             height: height,
-        }.write_global_palette(global_palette)
+        }.write_global_palette(global_palette, isloop)
     }
 
     /// Writes the global color palette.
-    pub fn write_global_palette(mut self, palette: &[u8]) -> io::Result<Self> {
+    pub fn write_global_palette(mut self, palette: &[u8], isloop: bool) -> io::Result<Self> {
         self.global_palette = true;
         let mut flags = 0;
         flags |= 0b1000_0000;
@@ -160,6 +166,9 @@ impl<W: Write> Encoder<W> {
         flags |= flag_size(num_colors) << 4; // wtf flag
         try!(self.write_screen_desc(flags));
         try!(self.write_color_table(palette));
+        if isloop {
+            try!(self.write_loop_extension());
+        }
         Ok(self)
     }
 
@@ -175,7 +184,7 @@ impl<W: Write> Encoder<W> {
             frame.needs_user_input,
             frame.transparent
         )));
-        //}
+
         try!(self.w.write_le(Block::Image as u8));
         try!(self.w.write_le(frame.left));
         try!(self.w.write_le(frame.top));
@@ -294,6 +303,20 @@ impl<W: Write> Encoder<W> {
                 try!(self.w.write_all(chunk));
             }
         }
+        self.w.write_le(0u8)
+    }
+
+    /// Writes a raw extension to the image.
+    pub fn write_loop_extension(&mut self) -> io::Result<()> {
+        try!(self.w.write_le(Block::Extension as u8));
+        try!(self.w.write_le(Extension::Application as u8));
+        try!(self.w.write_le(0x0B as u8));
+        try!(self.w.write_all(b"NETSCAPE2.0"));
+
+        try!(self.w.write_le(0x03 as u8));
+        try!(self.w.write_le(0x01 as u8));
+        try!(self.w.write_le(0u8));
+        try!(self.w.write_le(0u8));
         self.w.write_le(0u8)
     }
 

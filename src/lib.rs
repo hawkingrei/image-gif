@@ -58,7 +58,7 @@
 //!     0, 0, 0, 0, 0, 0,
 //! ]];
 //! let mut image = File::create("tests/samples/beacon.gif").unwrap();;
-//! let mut encoder = Encoder::new(&mut image, width, height, color_map).unwrap();
+//! let mut encoder = Encoder::new(&mut image, width, height, color_map, false).unwrap();
 //! encoder.set(Repeat::Infinite).unwrap();
 //! for state in &beacon_states {
 //!     let mut frame = Frame::default();
@@ -81,7 +81,7 @@
 //! let frame = gif::Frame::from_rgb(100, 100, &mut *pixels);
 //! // Create encoder
 //! let mut image = File::create("target/indexed_color.gif").unwrap();
-//! let mut encoder = gif::Encoder::new(&mut image, frame.width, frame.height, &[]).unwrap();
+//! let mut encoder = gif::Encoder::new(&mut image, frame.width, frame.height, &[], false).unwrap();
 //! // Write frame to file
 //! encoder.write_frame(&frame).unwrap();
 //! ```
@@ -161,7 +161,8 @@ fn round_trip() {
     let frame = decoder.read_next_frame().unwrap().unwrap();
     let mut data2 = vec![];
     {
-        let mut encoder = Encoder::new(&mut data2, frame.width, frame.height, &palette).unwrap();
+        let mut encoder =
+            Encoder::new(&mut data2, frame.width, frame.height, &palette, false).unwrap();
         encoder.write_frame(frame).unwrap();
     }
     assert_eq!(&data[..], &data2[..])

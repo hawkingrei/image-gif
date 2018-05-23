@@ -66,12 +66,16 @@ impl<R: Read + Copy> BatchGif<R> {
             let img = &mut image;
             match frame.palette {
                 Some(_) => {
-                    encode = Encoder::new(img, self.width, self.height, &[]).unwrap();
+                    encode = Encoder::new(img, self.width, self.height, &[], false).unwrap();
                 }
                 None => {
-                    encode =
-                        Encoder::new(img, self.width, self.height, self.global_palette.as_slice())
-                            .unwrap();
+                    encode = Encoder::new(
+                        img,
+                        self.width,
+                        self.height,
+                        self.global_palette.as_slice(),
+                        false,
+                    ).unwrap();
                 }
             }
             encode.write_frame(frame).unwrap();
@@ -84,8 +88,13 @@ impl<R: Read + Copy> BatchGif<R> {
         let mut image = Vec::new();
         {
             let mut img = &mut image;
-            let mut encode =
-                Encoder::new(img, self.width, self.height, self.global_palette.as_slice()).unwrap();
+            let mut encode = Encoder::new(
+                img,
+                self.width,
+                self.height,
+                self.global_palette.as_slice(),
+                self.is_loop,
+            ).unwrap();
             let is_optimize = if self.duration / self.count >= 20 {
                 false
             } else {
