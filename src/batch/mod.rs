@@ -26,10 +26,11 @@ impl BatchFrame {
             };
             tcolor = match fframe.transparent {
                 Some(p) => {
-                    let mut count = 0;
+                    let mut count: u32 = 0;
                     let mut result = Some([0; 3]);
+                    assert!(color_table.len() % 3 == 0);
                     for color in color_table.chunks_mut(3) {
-                        if count + 1 == p {
+                        if count + 1 == p as u32 {
                             result = Some([color[0], color[1], color[2]]);
                         }
                         count = count + 1;
@@ -177,7 +178,7 @@ impl<R: Read + Copy> BatchGif<R> {
                     frame = Arc::new(BatchFrame::new(
                         Frame {
                             delay: (frame.Frame.delay + tmp_delay) / 2,
-                            dispose: DisposalMethod::Previous,
+                            dispose: frame.Frame.dispose,
                             transparent: frame.Frame.transparent,
                             needs_user_input: frame.Frame.needs_user_input,
                             top: frame.Frame.top,
@@ -203,4 +204,12 @@ impl<R: Read + Copy> BatchGif<R> {
     pub fn is_loop(&self) -> bool {
         self.is_loop
     }
+
+    /// is_only_global_color of the image
+    pub fn is_only_global_color(&self) -> bool {
+        self.only_global_color
+    }
+
+    /// merge picture
+    //pub fn merge_and_write_frames(&mut self, f1: usize, f2: usize) {}
 }
